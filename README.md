@@ -11,10 +11,18 @@ A production-grade, tool-augmented AI agent built for ParcelPilot's B2B logistic
 
 ## Quick Start (Local Setup)
 
-1. **Clone and create virtualenv:**
-   ```bash
-   git clone [https://github.com/your-username/parcelpilot-agent.git](https://github.com/your-username/parcelpilot-agent.git)
-   cd parcelpilot-agent
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
+1. Clone and create virtualenv:
+```bash
+git clone [https://github.com/AmitKhode/parcelpilot-agent.git](https://github.com/AmitKhode/parcelpilot-agent.git)
+cd parcelpilot-agent
+
+# Create virtual environment
+python -m venv venv
+
+# Activate on Mac/Linux:
+source venv/bin/activate
+# OR Activate on Windows:
+.\venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
