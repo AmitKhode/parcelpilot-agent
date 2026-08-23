@@ -1,19 +1,27 @@
-#### `ARCHITECTURE.md`
-```markdown
-# ParcelPilot Agent Architecture
+# Architecture Note
 
-## 1. Agent Design & Orchestrator
-The agent uses OpenAI Function Calling with strict system instructions that decouple business logic into deterministic Python tools (`document_search`, `data_lookup`, `calculator`, `propose_escalation`). 
+**Agent Design**
+The core agent relies on an LLM utilizing a ReAct (Reasoning and Acting) loop, heavily augmented by function calling (Tool Use). It maintains conversation state and evaluates user input against a strict system prompt. A critical component of the design is the **Confirmation State Machine**, which intercepts any state-changing tool calls (like ticket escalations) and suspends execution until explicit human confirmation is received.
 
-## 2. Multi-Tier Source Hierarchy & Conflict Resolution
-When policies conflict:
-- **Contract Overrides**: The system tags document chunks with an `authority` score (Customer Agreement = 1, SOP = 2, Product Guide = 3, Deprecated = 5).
-- If Northstar requests cancellation, the agent cites `05_Northstar_Logistics_Enterprise_Agreement.pdf` which overrides the general INR 250 cancellation fee in `03_Cancellation_and_Service_Credit_SOP_v4.pdf`.
+**Tool Design**
+Tools are strictly typed and isolated. 
+*   **Read-Only Tools:** `get_order_details`, `get_ticket_details`, `search_documents`.
+*   **State-Changing Tools:** `propose_escalation`, `execute_confirmed_escalation`.
+*   **Compute Tools:** `calculate` (Uses AST parsing to safely evaluate math without arbitrary code execution risks).
+All data-layer tools enforce Multi-Tenant Access Control, intercepting the `account_id` from the user context to prevent cross-tenant data leakage.
 
-## 3. Data Authorization Layer
-Authorization is enforced at the function entry point within `app/data/loader.py`, never delegated to LLM prompt adherence. If a `CUSTOMER` role user asks for another account's data, an `AuthorizationError` is raised and caught immediately.
+**Document and Structured-Data Handling**
+*   **Structured Data:** Managed via `pandas`, treating the provided Excel workbook as an in-memory datastore.
+*   **Unstructured Data (Documents):** Handled via a local ChromaDB vector store. Documents are chunked, embedded, and retrieved based on semantic similarity to the user's query.
 
-## 4. Confirmation Safety State Machine
-State-changing tools transition through explicit states:
-`REQUEST` -> `PROPOSED` -> `WAITING_FOR_CONFIRMATION` -> `CONFIRMED` -> `EXECUTE` -> `SUCCESS`.
-The agent will refuse to execute an escalation until the user provides an affirmative response.
+**Source Reliability and Conflict Handling**
+The agent's system prompt enforces a strict hierarchical precedence to resolve conflicting information:
+1. Customer-Specific Agreements (Highest priority)
+2. Current SOPs
+3. Product Guides
+4. Deprecated Policies (Lowest priority)
+If a conflict arises, the agent explicitly cites the source it is relying on and explains the override logic.
+
+**Major Technical Trade-offs**
+*   **In-Memory Data vs. Relational DB:** I utilized Pandas to parse the Excel file directly for simplicity and portability in this assessment. In a production environment, this would be migrated to a proper PostgreSQL/CRM backend.
+*   **Synchronous vs. Asynchronous:** While the Streamlit UI handles asynchronous calls well, some local data lookups are synchronous. Future iterations would fully async the database drivers for high concurrency.
